@@ -48,7 +48,7 @@ const BOARD_HEIGHT = 20
 const INITIAL_DROP_TIME = 1000
 
 type PieceType = keyof typeof PIECES
-type Board = number[][]
+type Board = (number | string)[][]
 type Position = { x: number; y: number }
 
 interface GamePiece {
@@ -89,7 +89,7 @@ const isValidMove = (board: Board, piece: GamePiece, newPosition: Position): boo
           return false
         }
 
-        if (newY >= 0 && board[newY][newX]) {
+        if (newY >= 0 && board[newY][newX] !== 0) {
           return false
         }
       }
@@ -107,7 +107,7 @@ const placePiece = (board: Board, piece: GamePiece): Board => {
         const boardY = piece.position.y + y
         const boardX = piece.position.x + x
         if (boardY >= 0) {
-          newBoard[boardY][boardX] = 1
+          newBoard[boardY][boardX] = piece.type
         }
       }
     }
@@ -130,13 +130,17 @@ const clearLines = (board: Board): { newBoard: Board; linesCleared: number } => 
 export default function TetrisGame() {
   const [board, setBoard] = useState<Board>(createEmptyBoard())
   const [currentPiece, setCurrentPiece] = useState<GamePiece | null>(null)
-  const [nextPiece, setNextPiece] = useState<PieceType>(getRandomPiece())
+  const [nextPiece, setNextPiece] = useState<PieceType>("I")
   const [score, setScore] = useState(0)
   const [lines, setLines] = useState(0)
   const [level, setLevel] = useState(1)
   const [gameOver, setGameOver] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [dropTime, setDropTime] = useState(INITIAL_DROP_TIME)
+
+  useEffect(() => {
+    setNextPiece(getRandomPiece())
+  }, [])
 
   const gameLoopRef = useRef<NodeJS.Timeout>()
 
@@ -311,7 +315,7 @@ export default function TetrisGame() {
             const boardY = currentPiece.position.y + y
             const boardX = currentPiece.position.x + x
             if (boardY >= 0 && boardY < BOARD_HEIGHT && boardX >= 0 && boardX < BOARD_WIDTH) {
-              displayBoard[boardY][boardX] = 2 // Current piece
+              displayBoard[boardY][boardX] = currentPiece.type
             }
           }
         }
@@ -320,14 +324,34 @@ export default function TetrisGame() {
 
     return displayBoard.map((row, y) => (
       <div key={y} className="flex">
-        {row.map((cell, x) => (
-          <div
-            key={x}
-            className={`w-6 h-6 border border-gray-300 ${
-              cell === 1 ? "bg-gray-600" : cell === 2 ? `bg-blue-500` : "bg-gray-100"
-            }`}
-          />
-        ))}
+        {row.map((cell, x) => {
+          let cellColor = "bg-slate-900 border-slate-700"
+          let isCurrentPiece = false
+
+          if (cell !== 0) {
+            if (typeof cell === 'string') {
+              // Placed piece
+              cellColor = `border ${PIECE_COLORS[cell as PieceType].replace('#', 'border-')} bg-opacity-95`
+              cellColor += ` ${PIECE_COLORS[cell as PieceType].replace('#', 'bg-')}`
+            } else if (currentPiece && cell === currentPiece.type) {
+              // Current piece
+              isCurrentPiece = true
+              cellColor = `border ${PIECE_COLORS[currentPiece.type].replace('#', 'border-')} bg-opacity-85`
+              cellColor += ` ${PIECE_COLORS[currentPiece.type].replace('#', 'bg-')}`
+            }
+          }
+
+          return (
+            <div
+              key={x}
+              className={`w-5 h-5 sm:w-6 sm:h-6 border ${cellColor}`}
+              style={{
+                backgroundColor: cell !== 0 ? (typeof cell === 'string' ? PIECE_COLORS[cell as PieceType] : PIECE_COLORS[currentPiece?.type || 'I']) : undefined,
+                boxShadow: isCurrentPiece ? `inset 0 0 0 1px rgba(255,255,255,0.3)` : cell !== 0 ? `inset 0 1px 0 rgba(255,255,255,0.15)` : 'inset 0 1px 0 rgba(255,255,255,0.05)'
+              }}
+            />
+          )
+        })}
       </div>
     ))
   }
@@ -335,72 +359,151 @@ export default function TetrisGame() {
   // Render next piece preview
   const renderNextPiece = () => {
     const shape = PIECES[nextPiece]
-    return shape.map((row, y) => (
-      <div key={y} className="flex">
-        {row.map((cell, x) => (
-          <div key={x} className={`w-4 h-4 border border-gray-200 ${cell ? "bg-blue-400" : "bg-gray-50"}`} />
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50px] sm:min-h-[60px]">
+        {shape.map((row, y) => (
+          <div key={y} className="flex">
+            {row.map((cell, x) => (
+              <div
+                key={x}
+                className={`w-4 h-4 sm:w-5 sm:h-5 border ${cell ? 'shadow-sm' : 'border-transparent'}`}
+                style={{
+                  backgroundColor: cell ? PIECE_COLORS[nextPiece] : 'transparent',
+                  boxShadow: cell ? `inset 0 0 0 1px rgba(255,255,255,0.2)` : 'none'
+                }}
+              />
+            ))}
+          </div>
         ))}
       </div>
-    ))
+    )
   }
 
   return (
-    <div className="flex flex-col items-center p-4 bg-gray-900 min-h-screen text-white">
-      <h1 className="text-4xl font-bold mb-6 text-center">Tetris</h1>
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-2 sm:p-4">
+      <div className="w-full max-w-6xl">
+        {/* Header */}
+        <div className="text-center mb-2 sm:mb-4">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 tracking-wider drop-shadow-2xl">
+            TETRIS
+          </h1>
+          <div className="text-slate-400 text-xs sm:text-sm font-medium tracking-widest uppercase mt-1">
+            Professional Edition
+          </div>
+        </div>
 
-      <div className="flex gap-6">
-        {/* Game Board */}
-        <Card className="p-4 bg-gray-800 border-gray-600">
-          <div className="border-2 border-gray-600 bg-gray-100">{renderBoard()}</div>
-        </Card>
-
-        {/* Game Info */}
-        <div className="flex flex-col gap-4">
-          <Card className="p-4 bg-gray-800 border-gray-600">
-            <h3 className="text-lg font-semibold mb-2">Next Piece</h3>
-            <div className="bg-gray-100 p-2 rounded">{renderNextPiece()}</div>
-          </Card>
-
-          <Card className="p-4 bg-gray-800 border-gray-600">
-            <div className="space-y-2">
-              <div>Score: {score}</div>
-              <div>Lines: {lines}</div>
-              <div>Level: {level}</div>
-            </div>
-          </Card>
-
-          <div className="space-y-2">
-            {!isPlaying && !gameOver && (
-              <Button onClick={startGame} className="w-full">
-                Start Game
-              </Button>
-            )}
-
-            {isPlaying && (
-              <Button onClick={pauseGame} className="w-full">
-                {isPlaying ? "Pause" : "Resume"}
-              </Button>
-            )}
-
-            {gameOver && (
-              <div className="text-center">
-                <div className="text-red-400 font-bold mb-2">Game Over!</div>
-                <Button onClick={startGame} className="w-full">
-                  New Game
-                </Button>
+        {/* Main Game Layout */}
+        <div className="flex flex-col xl:flex-row items-center justify-center gap-3 sm:gap-4">
+          {/* Game Board */}
+          <div className="flex flex-col items-center order-1 xl:order-1">
+            <div className="bg-slate-900 border-2 border-slate-700 rounded-lg p-2 sm:p-3 shadow-2xl">
+              <div className="bg-slate-950 border border-slate-600 rounded p-1 sm:p-2">
+                <div className="bg-black border border-slate-500 inline-block rounded-sm overflow-hidden shadow-inner">
+                  {renderBoard()}
+                </div>
               </div>
-            )}
+            </div>
           </div>
 
-          <Card className="p-4 bg-gray-800 border-gray-600">
-            <h3 className="text-sm font-semibold mb-2">Controls</h3>
-            <div className="text-xs space-y-1">
-              <div>← → Move</div>
-              <div>↓ Soft Drop</div>
-              <div>↑ Rotate</div>
-              <div>Space Hard Drop</div>
+          {/* Game Info Panel */}
+          <div className="flex flex-col gap-2 sm:gap-3 w-full xl:w-auto xl:min-w-[240px] xl:max-w-[280px] order-2 xl:order-2">
+            {/* Game Controls */}
+            <div className="space-y-2">
+              {!isPlaying && !gameOver && (
+                <button
+                  onClick={startGame}
+                  className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-2 sm:py-3 px-4 sm:px-6 rounded-lg shadow-lg transform hover:scale-[1.02] transition-all duration-200 uppercase tracking-wide text-xs sm:text-sm"
+                >
+                  Start Game
+                </button>
+              )}
+
+              {isPlaying && (
+                <button
+                  onClick={pauseGame}
+                  className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold py-2 sm:py-3 px-4 sm:px-6 rounded-lg shadow-lg transform hover:scale-[1.02] transition-all duration-200 uppercase tracking-wide text-xs sm:text-sm"
+                >
+                  {isPlaying ? "Pause" : "Resume"}
+                </button>
+              )}
+
+              {gameOver && (
+                <div className="space-y-2 sm:space-y-3">
+                  <div className="bg-red-900/50 border border-red-700 rounded-lg p-3 sm:p-4 text-center">
+                    <div className="text-lg sm:text-2xl font-bold text-red-400 mb-1">Game Over</div>
+                    <div className="text-cyan-300 text-xs sm:text-sm">Final Score: {score.toLocaleString()}</div>
+                  </div>
+                  <button
+                    onClick={startGame}
+                    className="w-full bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-500 hover:to-pink-500 text-white font-bold py-2 sm:py-3 px-4 sm:px-6 rounded-lg shadow-lg transform hover:scale-[1.02] transition-all duration-200 uppercase tracking-wide text-xs sm:text-sm"
+                  >
+                    New Game
+                  </button>
+                </div>
+              )}
             </div>
-          </Card>
+            {/* Next Piece */}
+            <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 sm:p-4 shadow-xl">
+              <div className="text-center mb-2 sm:mb-3">
+                <h3 className="text-base sm:text-lg font-bold text-cyan-400 uppercase tracking-wide">Next</h3>
+              </div>
+              <div className="bg-slate-950 border border-slate-600 rounded p-2 sm:p-3 flex items-center justify-center">
+                {renderNextPiece()}
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 sm:p-4 shadow-xl">
+              <div className="text-center mb-2 sm:mb-3">
+                <h3 className="text-base sm:text-lg font-bold text-green-400 uppercase tracking-wide">Stats</h3>
+              </div>
+              <div className="grid grid-cols-3 sm:grid-cols-1 gap-1 sm:gap-2">
+                <div className="bg-slate-950 border border-slate-600 rounded p-1 sm:p-2 text-center">
+                  <div className="text-slate-400 text-xs font-semibold uppercase tracking-wide">Score</div>
+                  <div className="text-sm sm:text-xl font-bold text-white tabular-nums">{score.toLocaleString()}</div>
+                </div>
+                <div className="bg-slate-950 border border-slate-600 rounded p-1 sm:p-2 text-center">
+                  <div className="text-slate-400 text-xs font-semibold uppercase tracking-wide">Lines</div>
+                  <div className="text-sm sm:text-xl font-bold text-white">{lines}</div>
+                </div>
+                <div className="bg-slate-950 border border-slate-600 rounded p-1 sm:p-2 text-center">
+                  <div className="text-slate-400 text-xs font-semibold uppercase tracking-wide">Level</div>
+                  <div className="text-sm sm:text-xl font-bold text-white">{level}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Controls */}
+            <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 sm:p-4 shadow-xl">
+              <div className="text-center mb-2 sm:mb-3">
+                <h3 className="text-base sm:text-lg font-bold text-yellow-400 uppercase tracking-wide">Controls</h3>
+              </div>
+              <div className="space-y-1 sm:space-y-2 text-xs sm:text-sm">
+                <div className="flex justify-between items-center bg-slate-950 border border-slate-600 rounded px-2 sm:px-3 py-1 sm:py-2">
+                  <span className="text-slate-300">Move</span>
+                  <span className="text-white font-mono text-xs">← →</span>
+                </div>
+                <div className="flex justify-between items-center bg-slate-950 border border-slate-600 rounded px-2 sm:px-3 py-1 sm:py-2">
+                  <span className="text-slate-300">Soft Drop</span>
+                  <span className="text-white font-mono text-xs">↓</span>
+                </div>
+                <div className="flex justify-between items-center bg-slate-950 border border-slate-600 rounded px-2 sm:px-3 py-1 sm:py-2">
+                  <span className="text-slate-300">Rotate</span>
+                  <span className="text-white font-mono text-xs">↑</span>
+                </div>
+                <div className="flex justify-between items-center bg-slate-950 border border-slate-600 rounded px-2 sm:px-3 py-1 sm:py-2">
+                  <span className="text-slate-300">Hard Drop</span>
+                  <span className="text-white font-mono text-xs">SPACE</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="text-center mt-2 sm:mt-4 text-slate-500 text-xs">
+          Use keyboard controls to play • Built with Next.js & Tailwind CSS
         </div>
       </div>
     </div>
