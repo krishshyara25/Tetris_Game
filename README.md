@@ -9,6 +9,10 @@ A sleek, fully-functional **Tetris** clone built with modern web technologies. T
 
 ---
 
+## 🚀 Live Demo
+
+👉 https://tetris-game-krishshyara25s-projects.vercel.app/
+
 ## ✨ Features
 
 - **🎮 Smooth Gameplay:** Classic Tetris mechanics with intuitive keyboard controls.
