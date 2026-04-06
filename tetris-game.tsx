@@ -212,9 +212,24 @@ export default function TetrisGame() {
       newY += 1
     }
 
-    setCurrentPiece({ ...currentPiece, position: { ...currentPiece.position, y: newY } })
-    movePiece("down")
-  }, [currentPiece, board, gameOver, movePiece])
+    // Directly place the piece at the bottom position
+    const pieceAtBottom = { ...currentPiece, position: { ...currentPiece.position, y: newY } }
+    const newBoard = placePiece(board, pieceAtBottom)
+    const { newBoard: clearedBoard, linesCleared } = clearLines(newBoard)
+
+    setBoard(clearedBoard)
+    setLines((prev) => prev + linesCleared)
+    setScore((prev) => prev + linesCleared * 100 * level + 10)
+
+    // Increase level every 10 lines
+    const newLevel = Math.floor((lines + linesCleared) / 10) + 1
+    if (newLevel > level) {
+      setLevel(newLevel)
+      setDropTime(Math.max(100, INITIAL_DROP_TIME - (newLevel - 1) * 100))
+    }
+
+    setCurrentPiece(null)
+  }, [currentPiece, board, gameOver, level, lines])
 
   // Game loop
   useEffect(() => {
